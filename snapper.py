@@ -71,7 +71,7 @@ def host_reachable(host, timeout):
         return False
     return True
 
-def host_worker(hostQueue, fileQueue, timeout, user_agent, verbose):
+def host_worker(hostQueue, fileQueue, timeout, user_agent, verbose, http_only):
     dcap = dict(DesiredCapabilities.PHANTOMJS)
     dcap['phantomjs.page.settings.userAgent'] = user_agent
     dcap['accept_untrusted_certs'] = True
@@ -82,7 +82,7 @@ def host_worker(hostQueue, fileQueue, timeout, user_agent, verbose):
 
     while(not hostQueue.empty()):
         host = hostQueue.get()
-        if not host.startswith('http://') and not host.startswith('https://'):
+        if not http_only and not host.startswith('http://') and not host.startswith('https://'):
             tmp_queue = ['http://{}'.format(host), 'https://{}'.format(host)]
         else:
             tmp_queue = [host]
@@ -100,9 +100,9 @@ def host_worker(hostQueue, fileQueue, timeout, user_agent, verbose):
 def capture_snaps(hosts, outpath, timeout=10, serve=False, port=8000, 
         verbose=True, numWorkers=1, user_agent="Mozilla/5.0 (Windows NT\
             6.1) AppleWebKit/537.36 (KHTML,like Gecko) Chrome/41.0.2228.\
-            0 Safari/537.36"):
+            0 Safari/537.36", http_only=False):
 
-    init_fs()
+    init_fs(outpath)
 
     hostQueue = multiprocessing.Queue()
     fileQueue = multiprocessing.Queue()
@@ -112,7 +112,7 @@ def capture_snaps(hosts, outpath, timeout=10, serve=False, port=8000,
         hostQueue.put(host)
 
     for i in range(numWorkers):
-        p = multiprocessing.Process(target=host_worker, args=(hostQueue, fileQueue, timeout, user_agent, verbose))
+        p = multiprocessing.Process(target=host_worker, args=(hostQueue, fileQueue, timeout, user_agent, verbose, http_only))
         workers.append(p)
         p.start()
 
@@ -148,7 +148,7 @@ def capture_snaps(hosts, outpath, timeout=10, serve=False, port=8000,
 
     template = env.get_template('index.html')
 
-    with open(os.path.join(outpath, 'index.html'), 'w') as outputFile:
+    with open(os.path.join(outpath, 'output', 'index.html'), 'w') as outputFile:
         outputFile.write(template.render(setsOfSix=setsOfSix))
 
     if serve:
