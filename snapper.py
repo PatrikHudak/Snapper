@@ -1,4 +1,4 @@
-from jinja2 import Environment, PackageLoader
+from jinja2 import Environment, FileSystemLoader
 from selenium import webdriver
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from optparse import OptionParser
@@ -18,7 +18,7 @@ from requests import get
 from uuid import uuid4
 from selenium.common.exceptions import TimeoutException
 
-env = Environment(autoescape=True, loader=PackageLoader('snapper', 'templates'))
+env = Environment(autoescape=True, loader=FileSystemLoader(os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")))
 
 def save_image(uri, file_name, driver):
     try:
