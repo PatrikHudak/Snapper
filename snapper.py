@@ -84,6 +84,8 @@ def host_worker(hostQueue, fileQueue, timeout, user_agent, verbose, http_only):
         host = hostQueue.get()
         if not http_only and not host.startswith('http://') and not host.startswith('https://'):
             tmp_queue = ['http://{}'.format(host), 'https://{}'.format(host)]
+        elif http_only and not host.startswith('http://')
+            tmp_queue = ['http://{}'.format(host)]
         else:
             tmp_queue = [host]
 
