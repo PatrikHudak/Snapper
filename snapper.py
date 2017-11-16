@@ -1,9 +1,15 @@
+#!/usr/bin/env python
+
+import multiprocessing
+import os
+from optparse import OptionParser
+import shutil
+import sys
+from uuid import uuid4
+
 from jinja2 import Environment, FileSystemLoader
 from selenium import webdriver
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
-from optparse import OptionParser
-from multiprocessing import Process, Queue
-import sys, os
 try:
     import SocketServer
 except ImportError:
@@ -12,13 +18,11 @@ try:
     import SimpleHTTPServer
 except ImportError:
     import http.server as SimpleHTTPServer
-from os import chdir
-from shutil import copyfile
-from requests import get
-from uuid import uuid4
+import requests
 from selenium.common.exceptions import TimeoutException
 
-env = Environment(autoescape=True, loader=FileSystemLoader(os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")))
+templates_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'templates')
+env = Environment(autoescape=True, loader=FileSystemLoader(templates_path))
 
 def save_image(uri, file_name, driver):
     try:
@@ -28,16 +32,16 @@ def save_image(uri, file_name, driver):
     except TimeoutException:
         return False
 
-
 def host_reachable(host, timeout):
     try:
-        get(host, timeout=timeout, verify=False)
-        return True
-    except:
+        requests.get(host, timeout=timeout, verify=False)
+    except (requests.exceptions.RequestException, ):
         return False
+    return True
 
 def host_worker(hostQueue, fileQueue, timeout, user_agent, verbose):
     dcap = dict(DesiredCapabilities.PHANTOMJS)
+
     dcap["phantomjs.page.settings.userAgent"] = user_agent
     dcap["accept_untrusted_certs"] = True
     driver = webdriver.PhantomJS(service_args=['--ignore-ssl-errors=true'], desired_capabilities=dcap) # or add to your PATH
@@ -90,20 +94,21 @@ def capture_snaps(hosts, outpath, timeout=10, serve=False, port=8000,
         os.makedirs(cssOutputPath)
     if not os.path.exists(jsOutputPath):
         os.makedirs(jsOutputPath)
-    cssTemplatePath = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates", "css")
-    jsTemplatePath = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates", "js")
-    copyfile(os.path.join(cssTemplatePath, "materialize.min.css"), os.path.join(cssOutputPath, "materialize.min.css"))
-    copyfile(os.path.join(jsTemplatePath, "jquery.min.js"), os.path.join(jsOutputPath, "jquery.min.js"))
-    copyfile(os.path.join(jsTemplatePath, "materialize.min.js"), os.path.join(jsOutputPath, "materialize.min.js"))
+
+    cssTemplatePath = os.path.join(templates_path, "css")
+    jsTemplatePath = os.path.join(templates_path, "js")
+    shutil.copyfile(os.path.join(cssTemplatePath, "materialize.min.css"), os.path.join(cssOutputPath, "materialize.min.css"))
+    shutil.copyfile(os.path.join(jsTemplatePath, "jquery.min.js"), os.path.join(jsOutputPath, "jquery.min.js"))
+    shutil.copyfile(os.path.join(jsTemplatePath, "materialize.min.js"), os.path.join(jsOutputPath, "materialize.min.js"))
     
-    hostQueue = Queue()
-    fileQueue = Queue()
+    hostQueue = multiprocessing.Queue()
+    fileQueue = multiprocessing.Queue()
 
     workers = []
     for host in hosts:
         hostQueue.put(host)
     for i in range(numWorkers):
-        p = Process(target=host_worker, args=(hostQueue, fileQueue, timeout, user_agent, verbose))
+        p = multiprocessing.Process(target=host_worker, args=(hostQueue, fileQueue, timeout, user_agent, verbose))
         workers.append(p)
         p.start()
     try:
@@ -135,7 +140,7 @@ def capture_snaps(hosts, outpath, timeout=10, serve=False, port=8000,
     with open(os.path.join(outpath, "index.html"), "w") as outputFile:
         outputFile.write(template.render(setsOfSix=setsOfSix))
     if serve:
-        chdir("output")
+        os.chdir("output")
         Handler = SimpleHTTPServer.SimpleHTTPRequestHandler
         httpd = SocketServer.TCPServer(("127.0.0.1", PORT), Handler)
         print("Serving at port", PORT)
