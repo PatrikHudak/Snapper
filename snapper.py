@@ -102,6 +102,8 @@ def capture_snaps(hosts, outpath, timeout=10, serve=False, port=8000,
             6.1) AppleWebKit/537.36 (KHTML,like Gecko) Chrome/41.0.2228.\
             0 Safari/537.36"):
 
+    init_fs()
+
     hostQueue = multiprocessing.Queue()
     fileQueue = multiprocessing.Queue()
 
