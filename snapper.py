@@ -1,35 +1,67 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 import multiprocessing
 import os
-from optparse import OptionParser
 import shutil
 import sys
+from optparse import OptionParser
 from uuid import uuid4
 
+import requests
 from jinja2 import Environment, FileSystemLoader
 from selenium import webdriver
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+
 try:
     import SocketServer
 except ImportError:
+    # py3
     import socketserver as SocketServer
+
 try:
     import SimpleHTTPServer
 except ImportError:
+    #py3
     import http.server as SimpleHTTPServer
-import requests
-from selenium.common.exceptions import TimeoutException
 
 templates_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'templates')
 env = Environment(autoescape=True, loader=FileSystemLoader(templates_path))
+
+def init_fs(outpath):
+    outpath = os.path.join(outpath, 'output')
+    cssOutputPath = os.path.join(outpath, 'css')
+    jsOutputPath = os.path.join(outpath, 'js')
+    imagesOutputPath = os.path.join(outpath, 'images')
+
+    if not os.path.exists(outpath):
+        os.makedirs(outpath)
+    if not os.path.exists(imagesOutputPath):
+        os.makedirs(imagesOutputPath)
+    if not os.path.exists(cssOutputPath):
+        os.makedirs(cssOutputPath)
+    if not os.path.exists(jsOutputPath):
+        os.makedirs(jsOutputPath)
+
+    cssTemplatePath = os.path.join(templates_path, 'css')
+    jsTemplatePath = os.path.join(templates_path, 'js')
+
+    shutil.copyfile(os.path.join(cssTemplatePath, 'materialize.min.css'),
+                    os.path.join(cssOutputPath, 'materialize.min.css'))
+
+    shutil.copyfile(os.path.join(jsTemplatePath, 'jquery.min.js'),
+                    os.path.join(jsOutputPath, 'jquery.min.js'))
+
+    shutil.copyfile(os.path.join(jsTemplatePath, 'materialize.min.js'),
+                    os.path.join(jsOutputPath, 'materialize.min.js'))
 
 def save_image(uri, file_name, driver):
     try:
         driver.get(uri)
         driver.save_screenshot(file_name)
         return True
-    except TimeoutException:
+    except (TimeoutException, ):
         return False
 
 def host_reachable(host, timeout):
@@ -41,76 +73,47 @@ def host_reachable(host, timeout):
 
 def host_worker(hostQueue, fileQueue, timeout, user_agent, verbose):
     dcap = dict(DesiredCapabilities.PHANTOMJS)
+    dcap['phantomjs.page.settings.userAgent'] = user_agent
+    dcap['accept_untrusted_certs'] = True
 
-    dcap["phantomjs.page.settings.userAgent"] = user_agent
-    dcap["accept_untrusted_certs"] = True
-    driver = webdriver.PhantomJS(service_args=['--ignore-ssl-errors=true'], desired_capabilities=dcap) # or add to your PATH
-    driver.set_window_size(1024, 768) # optional
+    driver = webdriver.PhantomJS(service_args=['--ignore-ssl-errors=true'], desired_capabilities=dcap)
+    driver.set_window_size(1024, 768)
     driver.set_page_load_timeout(timeout)
+
     while(not hostQueue.empty()):
         host = hostQueue.get()
-        if not host.startswith("http://") and not host.startswith("https://"):
-            host1 = "http://" + host
-            host2 = "https://" + host
-            filename1 = os.path.join("output", "images", str(uuid4()) + ".png")
-            filename2 = os.path.join("output", "images", str(uuid4()) + ".png")
-            if verbose:
-                print("Fetching %s" % host1)
-            if host_reachable(host1, timeout) and save_image(host1, filename1, driver):
-                fileQueue.put({host1: filename1})
-            else:
-                if verbose:
-                    print("%s is unreachable or timed out" % host1)
-            if verbose:
-                print("Fetching %s" % host2)
-            if host_reachable(host2, timeout) and save_image(host2, filename2, driver):
-                fileQueue.put({host2: filename2})
-            else:
-                if verbose:
-                    print("%s is unreachable or timed out" % host2)
+        if not host.startswith('http://') and not host.startswith('https://'):
+            tmp_queue = ['http://{}'.format(host), 'https://{}'.format(host)]
         else:
-            filename = os.path.join("output", "images", str(uuid4()) + ".png")
+            tmp_queue = [host]
+
+        for current in tmp_queue:
+            filename = os.path.join('output', 'images', '{}.png'.format(str(uuid4())))
             if verbose:
-                print("Fetching %s" % host)
-            if host_reachable(host, timeout) and save_image(host, filename, driver):
-                fileQueue.put({host: filename})
-            else:
-                if verbose:
-                    print("%s is unreachable or timed out" % host)
+                print('[*] Fetching {}'.format(current))
+
+            if host_reachable(current, timeout) and save_image(current, filename, driver):
+                fileQueue.put({current: filename})
+            elif verbose:
+                print('[!] {} is unreachable or timed out'.format(current))
 
 def capture_snaps(hosts, outpath, timeout=10, serve=False, port=8000, 
         verbose=True, numWorkers=1, user_agent="Mozilla/5.0 (Windows NT\
             6.1) AppleWebKit/537.36 (KHTML,like Gecko) Chrome/41.0.2228.\
             0 Safari/537.36"):
-    outpath = os.path.join(outpath, "output")
-    cssOutputPath = os.path.join(outpath, "css")
-    jsOutputPath = os.path.join(outpath, "js")
-    imagesOutputPath = os.path.join(outpath, "images")
-    if not os.path.exists(outpath):
-        os.makedirs(outpath)
-    if not os.path.exists(imagesOutputPath):
-        os.makedirs(imagesOutputPath)
-    if not os.path.exists(cssOutputPath):
-        os.makedirs(cssOutputPath)
-    if not os.path.exists(jsOutputPath):
-        os.makedirs(jsOutputPath)
 
-    cssTemplatePath = os.path.join(templates_path, "css")
-    jsTemplatePath = os.path.join(templates_path, "js")
-    shutil.copyfile(os.path.join(cssTemplatePath, "materialize.min.css"), os.path.join(cssOutputPath, "materialize.min.css"))
-    shutil.copyfile(os.path.join(jsTemplatePath, "jquery.min.js"), os.path.join(jsOutputPath, "jquery.min.js"))
-    shutil.copyfile(os.path.join(jsTemplatePath, "materialize.min.js"), os.path.join(jsOutputPath, "materialize.min.js"))
-    
     hostQueue = multiprocessing.Queue()
     fileQueue = multiprocessing.Queue()
 
     workers = []
     for host in hosts:
         hostQueue.put(host)
+
     for i in range(numWorkers):
         p = multiprocessing.Process(target=host_worker, args=(hostQueue, fileQueue, timeout, user_agent, verbose))
         workers.append(p)
         p.start()
+
     try:
         for worker in workers:
             worker.join()
@@ -118,10 +121,12 @@ def capture_snaps(hosts, outpath, timeout=10, serve=False, port=8000,
         for worker in workers:
             worker.terminate()
             worker.join()
-        sys.exit()
+        sys.exit(1)
+
     setsOfSix = []
     count = 0
     hosts = {}
+
     while(not fileQueue.empty()):
         if count == 6:
             try:
@@ -130,25 +135,30 @@ def capture_snaps(hosts, outpath, timeout=10, serve=False, port=8000,
                 setsOfSix.append(hosts.items())
             hosts = {}
             count = 0
+
         temp = fileQueue.get()
         hosts.update(temp)
+
     try:
         setsOfSix.append(hosts.iteritems())
     except AttributeError:
         setsOfSix.append(hosts.items())
+
     template = env.get_template('index.html')
-    with open(os.path.join(outpath, "index.html"), "w") as outputFile:
+
+    with open(os.path.join(outpath, 'index.html'), 'w') as outputFile:
         outputFile.write(template.render(setsOfSix=setsOfSix))
+
     if serve:
-        os.chdir("output")
+        os.chdir('output')
         Handler = SimpleHTTPServer.SimpleHTTPRequestHandler
-        httpd = SocketServer.TCPServer(("127.0.0.1", PORT), Handler)
-        print("Serving at port", PORT)
+        httpd = SocketServer.TCPServer(('127.0.0.1', PORT), Handler)
+        print('Serving at port {}'.format(PORT))
         httpd.serve_forever()
     else:
         return True
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     parser = OptionParser()
     parser.add_option("-f", "--file", action="store", dest="filename",
                       help="Souce from input file", metavar="FILE")
@@ -179,11 +189,12 @@ if __name__ == "__main__":
             hosts = map(lambda s: s.strip(), hosts)
     elif options.list:
         hosts = []
-        for item in options.list.split(","):
+        for item in options.list.split(','):
             hosts.append(item.strip())
     else:
-        print("invalid args")
-        sys.exit()
+        print('invalid args')
+        sys.exit(1)
+
     numWorkers = options.numWorkers
     timeout = options.timeout
     verbose = options.verbose
@@ -192,5 +203,3 @@ if __name__ == "__main__":
 
     capture_snaps(hosts, os.getcwd(), timeout, True, PORT, verbose,
             numWorkers, user_agent)
-
-
