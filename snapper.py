@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import copy
 import multiprocessing
 import os
 import shutil
+import signal
 import sys
 from optparse import OptionParser
 from uuid import uuid4
@@ -31,30 +33,12 @@ env = Environment(autoescape=True, loader=FileSystemLoader(templates_path))
 
 def init_fs(outpath):
     outpath = os.path.join(outpath, 'output')
-    cssOutputPath = os.path.join(outpath, 'css')
-    jsOutputPath = os.path.join(outpath, 'js')
     imagesOutputPath = os.path.join(outpath, 'images')
 
     if not os.path.exists(outpath):
         os.makedirs(outpath)
     if not os.path.exists(imagesOutputPath):
         os.makedirs(imagesOutputPath)
-    if not os.path.exists(cssOutputPath):
-        os.makedirs(cssOutputPath)
-    if not os.path.exists(jsOutputPath):
-        os.makedirs(jsOutputPath)
-
-    cssTemplatePath = os.path.join(templates_path, 'css')
-    jsTemplatePath = os.path.join(templates_path, 'js')
-
-    shutil.copyfile(os.path.join(cssTemplatePath, 'materialize.min.css'),
-                    os.path.join(cssOutputPath, 'materialize.min.css'))
-
-    shutil.copyfile(os.path.join(jsTemplatePath, 'jquery.min.js'),
-                    os.path.join(jsOutputPath, 'jquery.min.js'))
-
-    shutil.copyfile(os.path.join(jsTemplatePath, 'materialize.min.js'),
-                    os.path.join(jsOutputPath, 'materialize.min.js'))
 
 def save_image(uri, file_name, driver):
     try:
@@ -99,13 +83,17 @@ def host_worker(hostQueue, fileQueue, timeout, user_agent, verbose, http_only):
             elif verbose:
                 print('[!] {} is unreachable or timed out'.format(current))
 
+    driver.service.process.send_signal(signal.SIGTERM)
+    driver.quit()
+
 def capture_snaps(hosts, outpath, timeout=10, serve=False, port=8000, 
         verbose=True, numWorkers=1, user_agent="Mozilla/5.0 (Windows NT\
             6.1) AppleWebKit/537.36 (KHTML,like Gecko) Chrome/41.0.2228.\
-            0 Safari/537.36", http_only=False):
+            0 Safari/537.36", http_only=False, name=None):
 
     init_fs(outpath)
 
+    subdomains = copy.copy(hosts)
     hostQueue = multiprocessing.Queue()
     fileQueue = multiprocessing.Queue()
 
@@ -130,6 +118,7 @@ def capture_snaps(hosts, outpath, timeout=10, serve=False, port=8000,
     setsOfSix = []
     count = 0
     hosts = {}
+    webapps = []
 
     while(not fileQueue.empty()):
         if count == 6:
@@ -142,6 +131,7 @@ def capture_snaps(hosts, outpath, timeout=10, serve=False, port=8000,
 
         temp = fileQueue.get()
         hosts.update(temp)
+        webapps.append(temp.keys()[0])
 
     try:
         setsOfSix.append(hosts.iteritems())
@@ -151,7 +141,7 @@ def capture_snaps(hosts, outpath, timeout=10, serve=False, port=8000,
     template = env.get_template('index.html')
 
     with open(os.path.join(outpath, 'output', 'index.html'), 'w') as outputFile:
-        outputFile.write(template.render(setsOfSix=setsOfSix))
+        outputFile.write(template.render(setsOfSix=setsOfSix, subdomains=subdomains, webapps=webapps, name=name))
 
     if serve:
         os.chdir('output')

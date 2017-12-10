@@ -1,11 +1,39 @@
 <html>
     <head>
-        <link rel="stylesheet" href="css/materialize.min.css">
-        <script src="js/jquery.min.js"></script>
-        <script src="js/materialize.min.js"></script>            
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.6/css/materialize.min.css">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.0.0/jquery.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.6/js/materialize.min.js"></script>
     </head>
 
     <body>
+        <div class="container">
+        <h3> Info for {{ name }}</h3>
+        <div class="row">
+            <ul class="collapsible popout" data-collapsible="accordion">
+                <li>
+                  <div class="collapsible-header">Subdomains ({{ subdomains|length }})</div>
+                  <div class="collapsible-body">
+                      <ul style="list-style-type: none; padding: 20px;">
+                        {% for sub in subdomains%}
+                            <li> {{ sub }} </li>
+                        {% endfor %}
+                      </ul>
+                  </div>
+                </li>
+                <li>
+                  <div class="collapsible-header">Web apps ({{ webapps|length }})</div>
+                  <div class="collapsible-body">
+                      <ul style="list-style-type: none; padding: 20px;">
+                        {% for sub in webapps%}
+                            <li> {{ sub }} </li>
+                        {% endfor %}
+                      </ul>
+                  </div>
+                </li>
+            </ul>
+        </div>
+        
+        <h3> Screenshots </h3>
         {% for hosts in setsOfSix%}
             <div class="row">
                 {% for host, filename in hosts%}
@@ -16,7 +44,8 @@
                 {% endfor %}
             </div>
         {% endfor %}
-        
+        </div>
+
         <!-- Modal Trigger -->
         <div id="modal1" class="modal modal-fixed-footer">
             <div class="modal-content">
