@@ -25,7 +25,7 @@
                   <div class="collapsible-body">
                       <ul style="list-style-type: none; padding: 20px;">
                         {% for sub in webapps%}
-                            <li> {{ sub }} </li>
+                            <li> {{ sub | replace('http://', '') }} </li>
                         {% endfor %}
                       </ul>
                   </div>
@@ -38,8 +38,8 @@
             <div class="row">
                 {% for host, filename in hosts%}
                     <div class="col l2 m4 s6">
-                        <img style="cursor: pointer; padding: 25px; width:95%; border:1px solid #021a40;" onclick="updateModel('{{filename.split('output/')[1]}}', '{{host}}')" src="{{filename.split('output/')[1]}}"/>
-                        <a style="white-space: nowrap; overflow: hidden; display: block; text-overflow: ellipsis;" src="{{host}}">{{host}}</a>
+                        <img style="cursor: pointer; padding: 25px; width:95%; border:1px solid #021a40;" onclick="updateModel('{{filename.split('output/')[1]}}', '')" src="{{filename.split('output/')[1]}}"/>
+                        <a style="white-space: nowrap; overflow: hidden; display: block; text-overflow: ellipsis;" src="{{host}}">{{host | replace('http://', '')}}</a>
                     </div>
                 {% endfor %}
             </div>

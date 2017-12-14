@@ -132,7 +132,7 @@ def capture_snaps(hosts, outpath, timeout=10, serve=False, port=8000,
 
         temp = fileQueue.get()
         hosts.update(temp)
-        webapps.append(temp.keys()[0].lstrip('http://'))
+        webapps.append(temp.keys()[0])
 
     try:
         setsOfSix.append(hosts.iteritems())
