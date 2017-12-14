@@ -49,8 +49,9 @@ def save_image(uri, file_name, driver):
         return False
 
 def host_reachable(host, timeout):
+    headers = {'user-agent': 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML,like Gecko) Chrome/41.0.2228.0 Safari/537.36'}
     try:
-        requests.get(host, timeout=timeout, verify=False)
+        requests.get(host, timeout=timeout, verify=False, headers=headers)
     except (requests.exceptions.RequestException, ):
         return False
     return True
@@ -131,7 +132,7 @@ def capture_snaps(hosts, outpath, timeout=10, serve=False, port=8000,
 
         temp = fileQueue.get()
         hosts.update(temp)
-        webapps.append(temp.keys()[0])
+        webapps.append(temp.keys()[0].lstrip('http://'))
 
     try:
         setsOfSix.append(hosts.iteritems())
