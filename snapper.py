@@ -75,7 +75,7 @@ def host_worker(hostQueue, fileQueue, timeout, user_agent, verbose, http_only):
             tmp_queue = [host]
 
         for current in tmp_queue:
-            filename = os.path.join('output', 'images', '{}-{}.png'.format(host, str(uuid4())))
+            filename = os.path.join('output', 'images', '{}-{}.png'.format(host.replace('https://', '').replace('http://', ''), str(uuid4())))
             if verbose:
                 print('[*] Fetching {}'.format(current))
 
